@@ -8,17 +8,20 @@ export interface ClothPiece {
   label: string; // shown in the HUD when unlocked
   unlock: number; // outfit index at which the piece appears
   lockX?: boolean; // keep X (the gloves are a pair; a centre shift stacks them)
+  // World-space seat offset, precomputed by `node scripts/deltas.mjs` (fitDelta).
+  // Running the fit at load took seconds on phones.
+  delta?: [number, number, number];
 }
 
 // Level 1 starts with the minimum (the leotard); each cleared level adds the
 // next piece, smallest first, so she is fully dressed by level 6.
 export const CLOTHES: ClothPiece[] = [
-  { name: "Object_35", label: "Leotard", unlock: 0 },
-  { name: "Object_37", label: "Collar", unlock: 1 },
-  { name: "Object_19", label: "Gloves", unlock: 2, lockX: true },
-  { name: "Object_21", label: "Belt", unlock: 3 },
-  { name: "Object_13", label: "Boots", unlock: 4 },
-  { name: "Object_15", label: "Stockings", unlock: 5 },
+  { name: "Object_35", label: "Leotard", unlock: 0, delta: [-0.8928, 0.0013, -0.0017] },
+  { name: "Object_37", label: "Collar", unlock: 1, delta: [0.3831, -0.0662, 0.0429] },
+  { name: "Object_19", label: "Gloves", unlock: 2, lockX: true, delta: [0.0, 0.1382, 0.0] },
+  { name: "Object_21", label: "Belt", unlock: 3, delta: [0.7518, -0.0326, 0.0044] },
+  { name: "Object_13", label: "Boots", unlock: 4, delta: [0.0, 0.2273, -0.0481] },
+  { name: "Object_15", label: "Stockings", unlock: 5, delta: [0.0002, -0.0308, 0.4544] },
 ];
 
 const _m = new THREE.Matrix4();

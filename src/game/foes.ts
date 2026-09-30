@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader, type GLTF, type GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { QUALITY, blobShadow } from "./quality";
 
 // Karens. The files are Mixamo rigs ~3.4 m tall in their own units. We scale a
 // wrapper group, never the rig itself, and never rebind.
@@ -71,10 +72,7 @@ function template(file: string, onProgress?: (e: ProgressEvent) => void): Promis
       const lights: THREE.Object3D[] = [];
       gltf.scene.traverse((o) => {
         if ((o as THREE.Light).isLight) lights.push(o);
-        if ((o as THREE.Mesh).isMesh) {
-          o.frustumCulled = false;
-          o.castShadow = true;
-        }
+        if ((o as THREE.Mesh).isMesh) o.castShadow = false; // blob shadow instead
       });
       lights.forEach((l) => l.removeFromParent());
       gltf.animations.forEach(stripRootMotion);
@@ -125,6 +123,9 @@ export class Karen {
   wanderT = 0;
   stun = 0;
   stuckT = 0;
+  private inst!: THREE.Object3D;
+  private details: THREE.Object3D[] = [];
+  private near = true;
 
   constructor(readonly kind: FoeKind, readonly speed: number) {}
 
@@ -133,7 +134,8 @@ export class Karen {
     const inst = cloneSkinned(t.gltf.scene);
     inst.scale.setScalar(t.scale);
     inst.position.y = t.lift;
-    this.group.add(inst);
+    this.inst = inst;
+    this.group.add(inst, blobShadow(0.9));
     this.clipSpeed = t.clipSpeed;
     this.mixer = new THREE.AnimationMixer(inst);
     const clip = t.gltf.animations[0];
@@ -142,6 +144,25 @@ export class Karen {
       this.action.time = Math.random() * clip.duration;
       this.action.play();
     }
+    this.mixer.update(0);
+    this.group.updateMatrixWorld(true);
+    inst.traverse((o) => {
+      const m = o as THREE.SkinnedMesh;
+      if (!m.isMesh) return;
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+      // the duplicate body set in karen-hard
+      if (/^Body_(Mid|Low)$/.test(mat.name) && mat.name !== QUALITY.karenBody) {
+        m.visible = false;
+        return;
+      }
+      // cull against a skinned bounding sphere, padded for the walk cycle
+      if (m.isSkinnedMesh) {
+        m.computeBoundingSphere();
+        m.boundingSphere!.radius *= 1.6;
+      }
+      m.frustumCulled = true;
+      if (m.geometry.attributes.position.count < 400) this.details.push(m);
+    });
     return this;
   }
 
@@ -154,9 +175,21 @@ export class Karen {
 
   // v: metres per second she actually moved this frame. Standing still freezes the
   // walk mid-stride instead of marching in place.
+  // Level of detail from the camera distance: drop tiny parts when far, and the
+  // whole Karen (plus her animation update) once she is lost in the fog.
+  lod(camDist: number) {
+    this.group.visible = camDist < QUALITY.farDistance;
+    const near = camDist < QUALITY.detailDistance;
+    if (near !== this.near) {
+      this.near = near;
+      for (const d of this.details) d.visible = near;
+    }
+  }
+
   update(dt: number, v: number) {
     if (this.action) this.action.timeScale = v > 0.05 ? THREE.MathUtils.clamp(v / this.clipSpeed, 0.5, 3) : 0;
-    this.mixer?.update(dt);
+    if (this.group.visible) this.mixer?.update(dt);
+    else this.action && (this.action.time += dt * this.action.timeScale); // keep phase
     // Mixamo faces +Z
     this.group.rotation.y = this.heading;
   }

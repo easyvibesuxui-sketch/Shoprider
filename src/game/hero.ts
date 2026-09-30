@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CLOTHES, fitDelta, shiftSkinned } from "./clothes.ts";
+import { QUALITY, blobShadow } from "./quality.ts";
 
 // hero.glb has bones but no animation clips, so every pose here is procedural.
 // Face points +Z. Her left side is +X.
@@ -25,10 +26,11 @@ export class Hero {
     this.model.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {
         o.frustumCulled = false;
-        o.castShadow = true;
+        o.castShadow = QUALITY.shadows;
       }
     });
     this.group.add(this.model);
+    if (!QUALITY.shadows) this.group.add(blobShadow(1.0));
     this.model.updateMatrixWorld(true);
 
     this.seatClothes();
@@ -56,7 +58,8 @@ export class Hero {
     for (const piece of CLOTHES) {
       const mesh = this.model.getObjectByName(piece.name) as THREE.SkinnedMesh | undefined;
       if (!mesh?.isSkinnedMesh) continue;
-      shiftSkinned(mesh, fitDelta(mesh, body, piece.lockX));
+      const delta = piece.delta ? new THREE.Vector3(...piece.delta) : fitDelta(mesh, body, piece.lockX);
+      shiftSkinned(mesh, delta);
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of mats) {
         // cloth hugs the skin; win the depth tie instead of z-fighting

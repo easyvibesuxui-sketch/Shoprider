@@ -8,6 +8,7 @@ import { Input } from "./input";
 import { Hud } from "./hud";
 import { playFinale } from "./finale";
 import { Preloader } from "./preloader";
+import { QUALITY } from "./quality";
 
 type State = "loading" | "title" | "play" | "paused" | "clear" | "finale" | "over" | "win";
 
@@ -47,11 +48,18 @@ export class Game {
   private showT = 0;
   private camYaw = 0;
   private params = new URLSearchParams(location.search);
+  // dynamic resolution: drop the pixel ratio when frames run long
+  private pixelRatio = 1;
+  private perfT = 0;
+  private perfFrames = 0;
+  private readonly _to = new THREE.Vector3();
+  private readonly _desire = new THREE.Vector3();
 
   constructor(private host: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
+    this.renderer = new THREE.WebGLRenderer({ antialias: QUALITY.antialias, powerPreference: "high-performance" });
+    this.pixelRatio = Math.min(devicePixelRatio, QUALITY.maxPixelRatio);
+    this.renderer.setPixelRatio(this.pixelRatio);
+    this.renderer.shadowMap.enabled = QUALITY.shadows;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     host.appendChild(this.renderer.domElement);
@@ -61,7 +69,7 @@ export class Game {
     this.scene.fog = new THREE.Fog(0x1c1724, 30, 70);
     this.scene.add(new THREE.HemisphereLight(0xfff4e8, 0x3a3040, 1.1));
     this.sun.position.set(4, 10, -3);
-    this.sun.castShadow = true;
+    this.sun.castShadow = QUALITY.shadows;
     this.sun.shadow.mapSize.set(1024, 1024);
     Object.assign(this.sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
     this.scene.add(this.sun, this.sun.target);
@@ -97,7 +105,9 @@ export class Game {
     this.hud.title(this.level + 1);
     this.hud.buttons(false);
     if (this.params.has("shot")) this.hud.play(); // clean frame for screenshots
-    this.renderer.render(this.scene, this.camera); // compile shaders behind the loader
+    // compile every shader behind the loader instead of hitching on first sight
+    this.renderer.compile(this.scene, this.camera);
+    this.renderer.render(this.scene, this.camera);
     await pre.done();
     if (this.params.has("play")) this.action();
     if (this.params.has("finale")) this.finale();
@@ -242,7 +252,9 @@ export class Game {
 
   private frame() {
     this.timer.update();
-    const dt = Math.min(this.timer.getDelta(), 1 / 20);
+    const rawDt = this.timer.getDelta();
+    this.adaptResolution(rawDt);
+    const dt = Math.min(rawDt, 1 / 20);
     const t = this.timer.getElapsed();
     const L = LEVELS[this.level];
     const heroPos = this.hero.group.position;
@@ -304,16 +316,37 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
 
+  // Hold ~50+ fps on weak phones by trading resolution, within QUALITY's bounds.
+  private adaptResolution(dt: number) {
+    if (this.state !== "play") return;
+    this.perfT += dt;
+    this.perfFrames++;
+    if (this.perfT < 1.5) return;
+    const fps = this.perfFrames / this.perfT;
+    this.perfT = this.perfFrames = 0;
+    const max = Math.min(devicePixelRatio, QUALITY.maxPixelRatio);
+    let next = this.pixelRatio;
+    if (fps < 45) next = Math.max(QUALITY.minPixelRatio, this.pixelRatio - 0.15);
+    else if (fps > 58) next = Math.min(max, this.pixelRatio + 0.1);
+    if (Math.abs(next - this.pixelRatio) > 0.01) {
+      this.pixelRatio = next;
+      this.renderer.setPixelRatio(next);
+      this.resize();
+    }
+  }
+
   // Karen AI. Chase when she's close (only while playing), otherwise stroll.
   // Steering: seek the target, bend around kiosks, keep off the walls and each
   // other, and turn at a human rate instead of snapping.
   private updateFoes(dt: number, chase: boolean) {
     const L = LEVELS[this.level];
     const heroPos = this.hero.group.position;
-    const desire = new THREE.Vector3();
+    const desire = this._desire;
+    const cam = this.camera.position;
     for (const k of this.foes) {
       const kp = k.group.position;
-      const to = new THREE.Vector3(heroPos.x - kp.x, 0, heroPos.z - kp.z);
+      k.lod(Math.hypot(kp.x - cam.x, kp.z - cam.z));
+      const to = this._to.set(heroPos.x - kp.x, 0, heroPos.z - kp.z);
       const dist = to.length();
       k.stun -= dt;
       let base = 0;

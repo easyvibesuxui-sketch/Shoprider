@@ -93,6 +93,22 @@ Plumbing, because this sandbox can reach neither kling.ai uploads nor the Kling 
 - References are passed to Kling as GitHub Pages URLs. `raw.githubusercontent.com` URLs got an HTTP 445 from Kling's firewall.
 - Results are copied into the repo by the `fetch-finale` workflow ("Fetch Kling asset": manual dispatch, `url` plus `path` under `public/` or `art/`), because Kling URLs expire after 24 h. Its commit is made with `GITHUB_TOKEN`, so it does not trigger Pages. The next push, or a manual run of the Pages workflow, deploys it.
 
+## Performance (phones)
+
+`src/game/quality.ts` detects a phone (coarse pointer or mobile user agent; `?q=low` and `?q=high` force it). On a phone:
+- no MSAA and no shadow map
+- the pixel ratio is capped at 1.5, and `Game.adaptResolution` lowers it to 0.75 when fps drops below 45, raising it again above 58
+
+Everywhere:
+- Only the hero casts a real shadow, and only on desktop. Karens (and the hero on phones) get a shared blob-shadow quad.
+- `karen-hard` contains the same body twice (`Body_Mid` and `Body_Low`, both drawn before). Now only one is drawn: Mid on desktop, Low on phones.
+- Karens are frustum-culled with padded skinned bounding spheres. Parts under 400 vertices hide beyond `detailDistance`, and the whole Karen (plus her mixer) is skipped beyond 55 m.
+- `Mall.mergeStatic` bakes the corridor into one mesh per material, with shop materials shared per shop name.
+- Clothes seat deltas are hardcoded in `CLOTHES` (`node scripts/deltas.mjs` regenerates them). The ICP fit took about 2.5 s on desktop and far longer on phones.
+- `renderer.compile` runs behind the preloader.
+
+Measured on a 390×844 @3x mobile emulation, before → after: draw calls 312–416 → 91–115, triangles 375–555k → 175–207k, and a 780×1688 buffer → ≤585×1266. The hero (134k triangles) is now most of what's left.
+
 ## Debug URL params
 
-`?level=1..7`, `?outfit=0..6`, `?shot=front|back|side` (fixed close camera, hides the card), `?play` (skip the title), `?finale` (play the ending now). `window.game` is exposed.
+`?level=1..7`, `?outfit=0..6`, `?shot=front|back|side` (fixed close camera, hides the card), `?play` (skip the title), `?finale` (play the ending now), `?q=low|high` (force phone or desktop quality). `window.game` is exposed.

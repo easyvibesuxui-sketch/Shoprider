@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 // The mall corridor: storefronts along both walls, kiosks down the middle,
 // checkout at the far end. Props are simple shapes; the hero's clothes are not.
@@ -93,27 +94,39 @@ export class Mall {
     // storefronts
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a2433, roughness: 0.6 });
     let shop = Math.floor(rnd() * SHOPS.length);
+    // one sign / glass / stand material per shop name, so merging can batch them
+    const shopMats = new Map<string, { sign: THREE.Material; glass: THREE.Material; stand: THREE.Material }>();
+    const matsFor = (name: string, color: string) => {
+      let m = shopMats.get(name);
+      if (!m) {
+        m = {
+          sign: new THREE.MeshBasicMaterial({ map: signTexture(name, color) }),
+          glass: new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.35), emissive: new THREE.Color(color).multiplyScalar(0.18), roughness: 0.1, metalness: 0.6 }),
+          stand: new THREE.MeshStandardMaterial({ color }),
+        };
+        shopMats.set(name, m);
+      }
+      return m;
+    };
     for (const side of [-1, 1]) {
       for (let z = -8; z < L + 8; z += 8) {
         const [name, color] = SHOPS[shop++ % SHOPS.length];
+        const mats = matsFor(name, color);
         const front = new THREE.Group();
         const wall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 7, 8), wallMat);
         wall.position.y = 3.5;
         front.add(wall);
-        const glass = new THREE.Mesh(
-          new THREE.PlaneGeometry(6.4, 3.6),
-          new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.35), emissive: new THREE.Color(color).multiplyScalar(0.18), roughness: 0.1, metalness: 0.6 }),
-        );
+        const glass = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 3.6), mats.glass);
         glass.position.set(-side * 0.21, 2.1, 0);
         glass.rotation.y = -side * Math.PI / 2;
         front.add(glass);
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 1.2), new THREE.MeshBasicMaterial({ map: signTexture(name, color) }));
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 1.2), mats.sign);
         sign.position.set(-side * 0.22, 4.7, 0);
         sign.rotation.y = -side * Math.PI / 2;
         front.add(sign);
         // mannequin stands in the window
         for (const dz of [-1.8, 1.8]) {
-          const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 1.6, 12), new THREE.MeshStandardMaterial({ color }));
+          const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 1.6, 12), mats.stand);
           stand.position.set(-side * 0.6, 0.8, dz);
           front.add(stand);
         }
@@ -131,7 +144,6 @@ export class Mall {
       if (rnd() < 0.5) {
         const k = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 1.1, 20), kioskMat);
         k.position.set(x, 0.55, z);
-        k.castShadow = k.receiveShadow = true;
         const top = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.1, 20), new THREE.MeshStandardMaterial({ color: SHOPS[Math.floor(rnd() * SHOPS.length)][1] }));
         top.position.set(x, 1.15, z);
         this.group.add(k, top);
@@ -141,7 +153,6 @@ export class Mall {
         pot.position.set(x, 0.4, z);
         const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9, 1), plantMat);
         bush.position.set(x, 1.4, z);
-        pot.castShadow = bush.castShadow = true;
         this.group.add(pot, bush);
         this.blockers.push({ x, z, r: 0.8 });
       }
@@ -163,6 +174,39 @@ export class Mall {
     gate.add(this.gateSign);
     gate.position.set(0, 0, L);
     this.group.add(gate);
+    this.mergeStatic();
+  }
+
+  // Bake every static mesh into one geometry per material: a few dozen draw
+  // calls instead of several hundred, which is what phones choke on.
+  private mergeStatic() {
+    this.group.updateMatrixWorld(true);
+    const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>();
+    const old: THREE.Mesh[] = [];
+    this.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || Array.isArray(m.material)) return;
+      let g = m.geometry.clone().applyMatrix4(m.matrixWorld);
+      if (g.index) g = g.toNonIndexed();
+      for (const k of Object.keys(g.attributes)) if (!["position", "normal", "uv"].includes(k)) g.deleteAttribute(k);
+      if (!byMat.has(m.material)) byMat.set(m.material, []);
+      byMat.get(m.material)!.push(g);
+      old.push(m);
+    });
+    for (const m of old) {
+      m.removeFromParent();
+      m.geometry.dispose();
+    }
+    this.group.clear();
+    for (const [mat, geos] of byMat) {
+      const merged = mergeGeometries(geos, false);
+      geos.forEach((g) => g.dispose());
+      if (!merged) continue;
+      const mesh = new THREE.Mesh(merged, mat);
+      mesh.receiveShadow = true;
+      mesh.matrixAutoUpdate = false;
+      this.group.add(mesh);
+    }
   }
 
   openGate() {
