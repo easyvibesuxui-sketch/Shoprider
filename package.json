@@ -1,0 +1,28 @@
+{
+  "name": "boutique-raider",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/easyvibesuxui-sketch/Shoprider.git"
+  },
+  "bugs": {
+    "url": "https://github.com/easyvibesuxui-sketch/Shoprider/issues"
+  },
+  "homepage": "https://github.com/easyvibesuxui-sketch/Shoprider#readme",
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  },
+  "type": "module",
+  "private": true
+}
