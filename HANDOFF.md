@@ -29,16 +29,18 @@ All pieces are skinned to the **correct** body bones (checked: the top is on spi
 2. Translation-only ICP onto the posed body vertices (trimmed mean, 25 iterations).
 3. `shiftSkinned` applies the delta per vertex through the inverse blended skin matrix. This runs before `dropArms`, while the bones are still in the bind pose.
 
+Order is smallest first ("minimal at the start, then more clothes"):
+
 | Mesh | Label | Unlock | Delta found (m) |
 |---|---|---|---|
-| `Object_35` | Leotard | 0 (level 1) | (-0.89, 0, 0) |
-| `Object_15` | Pants (torn thigh-highs) | 1 | (0, -0.03, 0.45) |
-| `Object_21` | Belt | 2 | (0.75, -0.03, 0) |
-| `Object_37` | Collar | 3 | (0.38, -0.07, 0.04) |
-| `Object_19` | Gloves (`lockX`) | 4 | (0, 0.14, 0) |
-| `Object_13` | Boots | 5 | (0, 0.23, -0.05) |
+| `Object_35` | ლეოტარდი (leotard) | 0 (level 1) | (-0.89, 0, 0) |
+| `Object_37` | საყელო (collar) | 1 | (0.38, -0.07, 0.04) |
+| `Object_19` | ხელთათმანები (gloves, `lockX`) | 2 | (0, 0.14, 0) |
+| `Object_21` | ქამარი (belt) | 3 | (0.75, -0.03, 0) |
+| `Object_13` | ფეხსაცმელი (boots) | 4 | (0, 0.23, -0.05) |
+| `Object_15` | წინდები (torn thigh-highs) | 5 | (0, -0.03, 0.45) |
 
-Level N starts with outfit N-1. Clearing a level adds one piece, and the win screen shows all six. Cloth materials use `polygonOffset` so they win depth ties with the skin.
+`buildLevel` sets outfit = level index, so level N wears the first N pieces (levels 6 and 7 wear all six). Restarting a level keeps that level's outfit. The clear screen previews the next piece. Cloth materials use `polygonOffset` so they win depth ties with the skin.
 
 ## Still true, do not repeat
 
@@ -49,7 +51,7 @@ Level N starts with outfit N-1. Clearing a level adds one piece, and the win scr
 
 ## Pose
 
-`dropArms` aims `upperArm_L/R` at `(±0.18, -1, 0.04)`. `captureJoints` stores each animated bone's rest quaternion plus the hero side axis (+X) in that bone's parent frame. `pose()` sets `q = axisAngle(axis, a) * rest`, where positive `a` swings a limb backward. Knees bend only backward and elbows only forward.
+`dropArms` aims `upperArm_L/R` at `(±0.25, -1, 0.02)`, which keeps the hands clear of her hips. `captureJoints` stores each animated bone's rest quaternion plus the hero side axis (+X) in that bone's parent frame. `pose()` sets `q = axisAngle(axis, a) * rest`, where positive `a` swings a limb backward. Knees bend only backward and elbows only forward. When running, the upper arm swings ±0.42 rad (less going back than forward) and the elbow holds about 0.7 rad, so the forward hand reaches waist height (`node scripts/arms.mjs` prints the joint positions). Earlier versions swung the hand up to shoulder height.
 
 Face is **+Z** and `group.rotation.y = yaw`. The chase cam sits behind her. The title and level-clear screens swing the camera round to her face.
 
@@ -61,7 +63,15 @@ Both files are Mixamo rigs about 3.4 m tall in their own units. A wrapper group 
 - L3–L4 `mid` → alternates between both files
 - L5–L7 `hard` → `karen-hard.glb` (uploaded as `karen_medium_hard.glb`, the catwalk walk). It uses `KHR_materials_pbrSpecularGlossiness`, which current three.js ignores, so `foes.ts` registers a small plugin that maps the diffuse texture. Its built-in spotlights are removed.
 
+`karen-easy`'s walk has root motion: the hips travel about 4.5 m over the 15 s clip and snap back on loop, which looked like Karens teleporting. `stripRootMotion` pins the hips' X/Z. Playback rate is movement speed ÷ the clip's own walk speed (`CLIP_SPEED`, measured by `scripts/karen-stride.mjs`), so the feet don't skate. A Karen that stands still freezes mid-stride.
+
+AI (`Game.updateFoes`): chase inside `chase` range, otherwise stroll mostly along the corridor. She steers around kiosks, stays off walls and away from other Karens, turns at a limited rate, and picks a new direction when stuck. Karens stroll on the title and clear screens and freeze on pause.
+
 `capoeira.glb` and `dancer_girl.glb` stay deleted.
+
+## UI
+
+The HUD is in Georgian. The title screen and the pause menu show the controls: keyboard rows on desktop, touch rows on a coarse pointer. The top-right ⏸ and ↻ buttons (and P/Esc) pause and restart the level. Switching tabs pauses the game. On touch, the left thumb stick draws a visible ring.
 
 ## Debug URL params
 

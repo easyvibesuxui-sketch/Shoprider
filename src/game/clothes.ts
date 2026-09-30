@@ -10,13 +10,15 @@ export interface ClothPiece {
   lockX?: boolean; // keep X (the gloves are a pair; a centre shift stacks them)
 }
 
+// Level 1 starts with the minimum (the leotard); each cleared level adds the
+// next piece, smallest first, so she is fully dressed by level 6.
 export const CLOTHES: ClothPiece[] = [
-  { name: "Object_35", label: "Leotard", unlock: 0 },
-  { name: "Object_15", label: "Pants", unlock: 1 },
-  { name: "Object_21", label: "Belt", unlock: 2 },
-  { name: "Object_37", label: "Collar", unlock: 3 },
-  { name: "Object_19", label: "Gloves", unlock: 4, lockX: true },
-  { name: "Object_13", label: "Boots", unlock: 5 },
+  { name: "Object_35", label: "ლეოტარდი", unlock: 0 },
+  { name: "Object_37", label: "საყელო", unlock: 1 },
+  { name: "Object_19", label: "ხელთათმანები", unlock: 2, lockX: true },
+  { name: "Object_21", label: "ქამარი", unlock: 3 },
+  { name: "Object_13", label: "ფეხსაცმელი", unlock: 4 },
+  { name: "Object_15", label: "წინდები", unlock: 5 },
 ];
 
 const _m = new THREE.Matrix4();

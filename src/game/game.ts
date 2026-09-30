@@ -7,7 +7,7 @@ import { CLOTHES } from "./clothes";
 import { Input } from "./input";
 import { Hud } from "./hud";
 
-type State = "loading" | "title" | "play" | "clear" | "over" | "win";
+type State = "loading" | "title" | "play" | "paused" | "clear" | "over" | "win";
 
 const RUN = 4.8; // m/s
 const DASH = 11;
@@ -68,7 +68,14 @@ export class Game {
     addEventListener("resize", () => this.resize());
     this.resize();
     this.hud.onAction = () => this.action();
+    this.hud.onPause = () => this.togglePause();
+    this.hud.onRestart = () => this.restart();
     this.input.onAction = () => this.action();
+    this.input.onPause = () => this.togglePause();
+    // leaving the tab mid-run pauses instead of letting the Karens catch her
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && this.state === "play") this.togglePause();
+    });
   }
 
   async start() {
@@ -78,10 +85,11 @@ export class Game {
     this.level = Number.isFinite(lv) && lv >= 1 && lv <= LEVELS.length ? lv - 1 : 0;
     await this.buildLevel();
     const outfit = this.params.get("outfit");
-    this.hero.setOutfit(outfit !== null ? Number(outfit) : this.level);
-    this.hud.stats(this.level + 1, 0, LEVELS[this.level].bags, this.lives, this.hero.outfit);
+    if (outfit !== null) this.hero.setOutfit(Number(outfit)); // debug override
+    this.refreshStats();
     this.state = "title";
     this.hud.title(this.level + 1);
+    this.hud.buttons(false);
     if (this.params.has("shot")) this.hud.play(); // clean frame for screenshots
     if (this.params.has("play")) this.action();
     this.renderer.setAnimationLoop(() => this.frame());
@@ -98,31 +106,54 @@ export class Game {
 
   private action() {
     if (this.state === "title") {
-      this.state = "play";
-      this.hud.play();
+      this.go();
+    } else if (this.state === "paused") {
+      this.togglePause();
     } else if (this.state === "clear") {
       this.level++;
-      this.buildLevel().then(() => {
-        this.state = "play";
-        this.hud.play();
-      });
+      this.buildLevel().then(() => this.go());
     } else if (this.state === "over") {
-      this.lives = 3;
-      this.buildLevel().then(() => {
-        this.state = "play";
-        this.hud.play();
-      });
+      this.restart();
     } else if (this.state === "win") {
       this.level = 0;
       this.lives = 3;
-      this.hero.setOutfit(0);
       this.buildLevel().then(() => {
         this.state = "title";
         this.hud.title(1);
+        this.hud.buttons(false);
       });
     } else if (this.state === "play") {
       this.dash();
     }
+  }
+
+  private go() {
+    this.state = "play";
+    this.input.clear();
+    this.hud.play();
+    this.hud.buttons(true);
+  }
+
+  private togglePause() {
+    if (this.state === "play") {
+      this.state = "paused";
+      this.input.clear();
+      this.hud.paused();
+      this.hud.buttons(true, true);
+    } else if (this.state === "paused") {
+      this.go();
+    }
+  }
+
+  // Restart the current level from scratch: full hearts, the level's own outfit.
+  private restart() {
+    if (this.state === "loading") return;
+    this.lives = 3;
+    this.buildLevel().then(() => this.go());
+  }
+
+  private refreshStats() {
+    this.hud.stats(this.level + 1, this.collected, LEVELS[this.level].bags, this.lives, this.hero.outfit);
   }
 
   private async buildLevel() {
@@ -153,7 +184,7 @@ export class Game {
       spots.map(async (p, i) => {
         const k = await new Karen(L.foe, L.speed).spawn(i);
         k.group.position.set(p.x, 0, p.z);
-        k.heading = Math.PI;
+        k.heading = k.want = Math.PI;
         this.scene.add(k.group);
         return k;
       }),
@@ -164,8 +195,10 @@ export class Game {
     this.hurtT = 0;
     this.hero.group.position.set(0, 0, 0);
     this.hero.group.rotation.y = 0;
-    this.camYaw = 0;
-    this.hud.stats(this.level + 1, this.collected, L.bags, this.lives, this.hero.outfit);
+    this.camYaw = Math.PI;
+    // level N wears the first N pieces of the file outfit
+    this.hero.setOutfit(this.level);
+    this.refreshStats();
   }
 
   private freeSpot(rnd: () => number, z0: number, z1: number, avoid: { x: number; z: number }[] = []) {
@@ -223,82 +256,32 @@ export class Game {
           b.taken = true;
           b.mesh.visible = false;
           this.collected++;
-          this.hud.stats(this.level + 1, this.collected, L.bags, this.lives, this.hero.outfit);
+          this.refreshStats();
           if (this.collected === L.bags) {
             this.mall!.openGate();
-            this.hud.toast("All bags! Run to CHECKOUT");
+            this.hud.toast("ყველა ჩანთა! გაიქეცი CHECKOUT-მდე");
           }
         }
       }
 
       // Karens
       this.hurtT -= dt;
-      for (const k of this.foes) {
-        const kp = k.group.position;
-        const to = new THREE.Vector3(heroPos.x - kp.x, 0, heroPos.z - kp.z);
-        const dist = to.length();
-        let v = 0;
-        k.stun -= dt;
-        if (k.stun > 0) {
-          v = 0;
-        } else if (dist < L.chase) {
-          to.normalize();
-          k.heading = Math.atan2(to.x, to.z);
-          v = L.speed;
-        } else {
-          k.wanderT -= dt;
-          if (k.wanderT <= 0) {
-            const a = Math.random() * Math.PI * 2;
-            k.wanderDir.set(Math.sin(a), 0, Math.cos(a));
-            k.wanderT = 2 + Math.random() * 3;
-          }
-          k.heading = Math.atan2(k.wanderDir.x, k.wanderDir.z);
-          v = L.speed * 0.4;
-        }
-        kp.x += Math.sin(k.heading) * v * dt;
-        kp.z += Math.cos(k.heading) * v * dt;
-        for (const o of this.foes) {
-          if (o === k) continue;
-          const dx = kp.x - o.group.position.x, dz = kp.z - o.group.position.z;
-          const d = Math.hypot(dx, dz);
-          if (d < FOE_R * 2 && d > 1e-4) {
-            kp.x += (dx / d) * (FOE_R * 2 - d) * 0.5;
-            kp.z += (dz / d) * (FOE_R * 2 - d) * 0.5;
-          }
-        }
-        this.collide(kp, FOE_R);
-        k.update(dt, v / 3);
-
-        if (dist < HERO_R + FOE_R + 0.1 && this.hurtT <= 0 && k.stun <= 0) {
-          if (this.dashT > 0) {
-            k.stun = 2; // dashed through her
-            this.hud.toast("Excuse me!");
-          } else {
-            this.lives--;
-            this.hurtT = 1.5;
-            k.stun = 1.2;
-            heroPos.x -= to.x * 1.2;
-            heroPos.z -= to.z * 1.2;
-            this.collide(heroPos, HERO_R);
-            this.hud.toast("A Karen wants your manager!");
-            this.hud.stats(this.level + 1, this.collected, L.bags, this.lives, this.hero.outfit);
-            if (this.lives <= 0) {
-              this.state = "over";
-              this.hud.over(this.level + 1);
-            }
-          }
-        }
-      }
+      this.updateFoes(dt, true);
 
       // checkout
       if (this.collected === L.bags && heroPos.z > L.length - 1 && Math.abs(heroPos.x) < 2.4) this.clearLevel();
-    } else {
+    } else if (this.state !== "paused") {
       this.speed = THREE.MathUtils.lerp(this.speed, 0, 1 - Math.exp(-dt * 8));
-      for (const k of this.foes) k.update(dt, 0);
+      this.updateFoes(dt, false); // stroll around, no chasing
+    }
+
+    if (this.state === "paused") {
+      this.renderer.render(this.scene, this.camera);
+      return;
     }
 
     this.hero.group.rotation.y = this.yaw;
-    this.hero.pose(dt, Math.abs(this.speed) / RUN);
+    this.hero.pose(dt, this.speed / RUN);
     this.hero.group.visible = this.hurtT <= 0 || Math.floor(t * 12) % 2 === 0;
 
     for (const b of this.bags) {
@@ -312,21 +295,137 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
 
+  // Karen AI. Chase when she's close (only while playing), otherwise stroll.
+  // Steering: seek the target, bend around kiosks, keep off the walls and each
+  // other, and turn at a human rate instead of snapping.
+  private updateFoes(dt: number, chase: boolean) {
+    const L = LEVELS[this.level];
+    const heroPos = this.hero.group.position;
+    const desire = new THREE.Vector3();
+    for (const k of this.foes) {
+      const kp = k.group.position;
+      const to = new THREE.Vector3(heroPos.x - kp.x, 0, heroPos.z - kp.z);
+      const dist = to.length();
+      k.stun -= dt;
+      let base = 0;
+      if (k.stun > 0) {
+        base = 0;
+      } else if (chase && dist < L.chase) {
+        desire.copy(to).normalize();
+        base = L.speed;
+      } else {
+        k.wanderT -= dt;
+        if (k.wanderT <= 0) {
+          // mostly along the corridor, which is where the room is
+          const a = (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.6;
+          k.want = a;
+          k.wanderT = 2.5 + Math.random() * 3;
+        }
+        desire.set(Math.sin(k.want), 0, Math.cos(k.want));
+        base = 1.1;
+      }
+
+      if (base > 0) {
+        // bend around blockers ahead: push away from the part of the blocker
+        // that sits across her path
+        for (const b of this.mall!.blockers) {
+          const bx = b.x - kp.x, bz = b.z - kp.z;
+          const len = Math.hypot(desire.x, desire.z) || 1;
+          const ax = desire.x / len, az = desire.z / len;
+          const ahead = bx * ax + bz * az;
+          if (ahead <= 0 || ahead > b.r + 2.2) continue;
+          let ox = bx - ahead * ax, oz = bz - ahead * az; // path -> blocker centre
+          let off = Math.hypot(ox, oz);
+          if (off > b.r + FOE_R + 0.3) continue;
+          if (off < 1e-3) { ox = az; oz = -ax; off = 1; } // dead centre: pick a side
+          const push = (1 - ahead / (b.r + 2.2)) * 1.8;
+          desire.x -= (ox / off) * push;
+          desire.z -= (oz / off) * push;
+        }
+        // keep off the side walls and the ends
+        const edge = HALF_W - 1.4;
+        if (kp.x > edge) desire.x -= (kp.x - edge) * 1.5;
+        if (kp.x < -edge) desire.x += (-edge - kp.x) * 1.5;
+        if (kp.z < 2) desire.z += 1;
+        if (kp.z > L.length - 1) desire.z -= 1;
+        // personal space
+        for (const o of this.foes) {
+          if (o === k) continue;
+          const dx = kp.x - o.group.position.x, dz = kp.z - o.group.position.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 1.6 && d > 1e-4) {
+            desire.x += (dx / d) * (1.6 - d);
+            desire.z += (dz / d) * (1.6 - d);
+          }
+        }
+        if (desire.lengthSq() > 1e-6) k.want = Math.atan2(desire.x, desire.z);
+      }
+      const aligned = k.turn(dt, chase ? 6 : 3);
+      const v = base * (0.25 + 0.75 * aligned);
+      const px = kp.x, pz = kp.z;
+      kp.x += Math.sin(k.heading) * v * dt;
+      kp.z += Math.cos(k.heading) * v * dt;
+      for (const o of this.foes) {
+        if (o === k) continue;
+        const dx = kp.x - o.group.position.x, dz = kp.z - o.group.position.z;
+        const d = Math.hypot(dx, dz);
+        if (d < FOE_R * 2 && d > 1e-4) {
+          kp.x += (dx / d) * (FOE_R * 2 - d) * 0.5;
+          kp.z += (dz / d) * (FOE_R * 2 - d) * 0.5;
+        }
+      }
+      this.collide(kp, FOE_R);
+      const moved = Math.hypot(kp.x - px, kp.z - pz) / Math.max(dt, 1e-4);
+      // wedged against something while strolling: pick a new direction
+      k.stuckT = base > 0 && moved < v * 0.3 ? k.stuckT + dt : 0;
+      if (k.stuckT > 0.4 && !(chase && dist < L.chase)) {
+        k.wanderT = 0;
+        k.want += Math.PI * (0.6 + Math.random() * 0.8);
+        k.stuckT = 0;
+      }
+      k.update(dt, moved);
+
+      if (!chase) continue;
+      if (dist < HERO_R + FOE_R + 0.1 && this.hurtT <= 0 && k.stun <= 0) {
+        if (this.dashT > 0) {
+          k.stun = 2; // dashed past her
+          this.hud.toast("უკაცრავად!");
+        } else {
+          this.lives--;
+          this.hurtT = 1.5;
+          k.stun = 1.2;
+          to.normalize();
+          heroPos.x += to.x * 1.2;
+          heroPos.z += to.z * 1.2;
+          this.collide(heroPos, HERO_R);
+          this.hud.toast("კარენს მენეჯერი უნდა!");
+          this.refreshStats();
+          if (this.lives <= 0) {
+            this.state = "over";
+            this.hud.over(this.level + 1);
+            this.hud.buttons(false);
+          }
+        }
+      }
+    }
+  }
+
   private clearLevel() {
     // turn her back toward the mall so the showcase camera has room in front
     this.yaw = Math.PI;
     this.showT = 0;
-    const L = LEVELS[this.level];
+    this.hud.buttons(false);
     if (this.level + 1 >= LEVELS.length) {
       this.hero.setOutfit(CLOTHES.length);
       this.state = "win";
       this.hud.win();
     } else {
-      this.hero.setOutfit(this.hero.outfit + 1);
+      // preview the piece the next level adds
+      this.hero.setOutfit(this.level + 1);
       this.state = "clear";
-      this.hud.clear(this.level + 1, Hero.pieceFor(this.hero.outfit)?.label);
+      this.hud.clear(this.level + 1, Hero.pieceFor(this.level + 1)?.label);
     }
-    this.hud.stats(this.level + 1, this.collected, L.bags, this.lives, this.hero.outfit);
+    this.refreshStats();
   }
 
   private updateCamera(dt: number) {

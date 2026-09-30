@@ -13,10 +13,32 @@ const FILES = {
 
 const HEIGHT = 1.72;
 
+// Walk speed (m/s at 1.72 m) the clip's feet were animated for, measured with
+// scripts/karen-stride.mjs. Playback rate = actual speed / this, so feet don't skate.
+const CLIP_SPEED: Record<string, number> = {
+  [FILES.easy]: 1.3,
+  [FILES.hard]: 1.0,
+};
+
 interface Template {
   gltf: GLTF;
   scale: number;
   lift: number;
+  clipSpeed: number;
+}
+
+// karen-easy's walk carries root motion: the hips travel ~4.5 m forward over the
+// 15 s clip, then snap back when it loops. We move the Karen ourselves, so pin the
+// hips' X/Z to their first key and keep only the vertical bob.
+function stripRootMotion(clip: THREE.AnimationClip) {
+  for (const t of clip.tracks) {
+    if (!/Hips[^.]*\.position$/.test(t.name)) continue;
+    const v = t.values;
+    for (let i = 3; i < v.length; i += 3) {
+      v[i] = v[0];
+      v[i + 2] = v[2];
+    }
+  }
 }
 
 const templates = new Map<string, Promise<Template>>();
@@ -55,6 +77,7 @@ function template(file: string): Promise<Template> {
         }
       });
       lights.forEach((l) => l.removeFromParent());
+      gltf.animations.forEach(stripRootMotion);
       // measure the posed height from the first animation frame
       const probe = cloneSkinned(gltf.scene);
       const mixer = new THREE.AnimationMixer(probe);
@@ -74,7 +97,7 @@ function template(file: string): Promise<Template> {
         }
       });
       const scale = HEIGHT / (box.max.y - box.min.y);
-      return { gltf, scale, lift: -box.min.y * scale };
+      return { gltf, scale, lift: -box.min.y * scale, clipSpeed: CLIP_SPEED[file] ?? 1.2 };
     });
     templates.set(file, t);
   }
@@ -96,11 +119,12 @@ export class Karen {
   readonly group = new THREE.Group();
   private mixer!: THREE.AnimationMixer;
   private action?: THREE.AnimationAction;
-  vel = new THREE.Vector3();
-  heading = 0;
+  private clipSpeed = 1.2;
+  heading = 0; // current facing, eased toward `want`
+  want = 0;
   wanderT = 0;
-  wanderDir = new THREE.Vector3();
   stun = 0;
+  stuckT = 0;
 
   constructor(readonly kind: FoeKind, readonly speed: number) {}
 
@@ -110,6 +134,7 @@ export class Karen {
     inst.scale.setScalar(t.scale);
     inst.position.y = t.lift;
     this.group.add(inst);
+    this.clipSpeed = t.clipSpeed;
     this.mixer = new THREE.AnimationMixer(inst);
     const clip = t.gltf.animations[0];
     if (clip) {
@@ -120,8 +145,17 @@ export class Karen {
     return this;
   }
 
-  update(dt: number, moving: number) {
-    if (this.action) this.action.timeScale = 0.35 + moving * 0.9;
+  // Turn toward `want` at a human rate; returns how aligned she is (0..1).
+  turn(dt: number, rate = 5) {
+    const d = Math.atan2(Math.sin(this.want - this.heading), Math.cos(this.want - this.heading));
+    this.heading += THREE.MathUtils.clamp(d, -rate * dt, rate * dt);
+    return Math.max(0, Math.cos(d));
+  }
+
+  // v: metres per second she actually moved this frame. Standing still freezes the
+  // walk mid-stride instead of marching in place.
+  update(dt: number, v: number) {
+    if (this.action) this.action.timeScale = v > 0.05 ? THREE.MathUtils.clamp(v / this.clipSpeed, 0.5, 3) : 0;
     this.mixer?.update(dt);
     // Mixamo faces +Z
     this.group.rotation.y = this.heading;

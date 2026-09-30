@@ -1,20 +1,45 @@
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: #1c1724; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; touch-action: none; user-select: none; }
+html, body { margin: 0; height: 100%; background: #1c1724; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Georgian", sans-serif; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
 #app { position: fixed; inset: 0; }
 #hud { position: fixed; inset: 0; pointer-events: none; }
-.stats { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 15px; text-shadow: 0 1px 3px #000; }
+
+.bar { position: absolute; top: 0; left: 0; right: 0; padding: 10px 12px; display: flex; align-items: flex-start; gap: 10px; }
+.stats { flex: 1; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 15px; text-shadow: 0 1px 3px #000; }
 .stats b { color: #ffd166; }
 .lives { color: #ff5d73; font-size: 20px; letter-spacing: 2px; }
 .lives i { color: rgba(255,255,255,0.2); font-style: normal; }
 .outfit { display: flex; gap: 4px; flex-wrap: wrap; }
 .outfit span { font-size: 11px; padding: 2px 7px; border-radius: 10px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.35); }
 .outfit span.on { background: #ff6fa8; color: #fff; }
-.card { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); padding: 20px 22px; border-radius: 16px; background: rgba(20,16,28,0.82); backdrop-filter: blur(6px); text-align: center; display: none; pointer-events: auto; }
+.btns { display: none; gap: 8px; pointer-events: auto; }
+.btns.on { display: flex; }
+.btns .icon { width: 44px; height: 44px; border: 0; border-radius: 12px; background: rgba(20,16,28,0.75); color: #fff; font-size: 20px; line-height: 44px; padding: 0; cursor: pointer; backdrop-filter: blur(4px); }
+.btns .icon:active { background: #ff6fa8; }
+
+.card { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); padding: 20px 22px; border-radius: 16px; background: rgba(20,16,28,0.86); backdrop-filter: blur(6px); text-align: center; display: none; pointer-events: auto; }
 .card.on { display: block; }
-.card h1 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 28px; color: #ffd166; }
+.card.big { top: 50%; bottom: auto; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); max-height: calc(100% - 90px); overflow-y: auto; margin-top: 24px; }
+.card h1 { margin: 0 0 8px; font-family: Georgia, "Noto Serif Georgian", serif; font-size: 28px; color: #ffd166; }
+.card h2 { margin: 0 0 10px; font-size: 16px; color: #ff6fa8; font-weight: 600; }
 .card p { margin: 6px 0; line-height: 1.4; color: #eee; }
-.card .keys { font-size: 13px; color: #bbb; }
 .card .unlock b { color: #ff6fa8; }
 .card button { margin-top: 12px; font: inherit; font-weight: 700; font-size: 17px; padding: 10px 26px; border: 0; border-radius: 24px; background: #ff6fa8; color: #fff; cursor: pointer; }
+.card button.alt { background: rgba(255,255,255,0.12); }
+.row-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.controls { text-align: left; display: grid; gap: 10px; }
+.controls .row { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center; font-size: 14px; }
+.controls .row.dim { display: none; }
+.controls .keys { display: flex; gap: 4px; justify-content: flex-end; }
+kbd { min-width: 30px; height: 30px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; background: #f4f1de; color: #1c1724; font: 700 14px system-ui, sans-serif; box-shadow: 0 3px 0 #9d97a8; }
+kbd.wide { min-width: 70px; }
+.pad { font-style: normal; font-size: 26px; color: #ffd166; width: 34px; text-align: center; }
+.goal { list-style: none; padding: 0; margin: 14px 0 0; text-align: left; font-size: 14px; line-height: 1.5; color: #ddd; }
+.goal b { color: #7ee0b5; }
+
 .toast { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 20px; background: rgba(0,0,0,0.6); font-weight: 600; opacity: 0; transition: opacity .2s; white-space: nowrap; }
 .toast.on { opacity: 1; }
+
+.stick { position: fixed; width: 110px; height: 110px; margin: -55px 0 0 -55px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.06); pointer-events: none; display: none; }
+.stick.on { display: block; }
+.stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255,111,168,0.8); }

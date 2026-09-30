@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { CLOTHES, fitDelta, shiftSkinned } from "./clothes";
+import { CLOTHES, fitDelta, shiftSkinned } from "./clothes.ts";
 
 // hero.glb has bones but no animation clips, so every pose here is procedural.
 // Face points +Z. Her left side is +X.
@@ -80,7 +80,8 @@ export class Hero {
       const b = lower.getWorldPosition(new THREE.Vector3());
       const cur = b.sub(a).normalize();
       const out = Math.sign(a.x - centreX);
-      const target = new THREE.Vector3(out * 0.18, -1, 0.04).normalize();
+      // wide enough that the hands clear her hips
+      const target = new THREE.Vector3(out * 0.25, -1, 0.02).normalize();
       const turn = new THREE.Quaternion().setFromUnitVectors(cur, target);
       const parentQ = upper.parent!.getWorldQuaternion(new THREE.Quaternion());
       // clone(): invert() mutates, and parentQ is needed un-inverted on the right
@@ -94,7 +95,7 @@ export class Hero {
     this.model.updateMatrixWorld(true);
     const rootQ = this.group.getWorldQuaternion(new THREE.Quaternion());
     const side = new THREE.Vector3(1, 0, 0).applyQuaternion(rootQ);
-    const names = ["upperArm_L", "upperArm_R", "lowerArm_L", "lowerArm_R", "hip_L", "hip_R", "knee_L", "knee_R", "spine_1", "pelvis"];
+    const names = ["upperArm_L", "upperArm_R", "lowerArm_L", "lowerArm_R", "hip_L", "hip_R", "knee_L", "knee_R", "spine_1"];
     for (const n of names) {
       const bone = this.find(`bip_${n}`);
       const pq = bone.parent!.getWorldQuaternion(new THREE.Quaternion());
@@ -107,29 +108,35 @@ export class Hero {
     j.bone.quaternion.setFromAxisAngle(j.axis, angle).multiply(j.rest);
   }
 
-  // speed: 0 idle, 1 full run. Positive angle about +X swings a limb backward.
+  // speed: signed, 0 idle, 1 full run forward, negative backing up.
+  // Positive angle about +X swings a limb backward.
   pose(dt: number, speed: number) {
-    const s = THREE.MathUtils.clamp(speed, 0, 1.4);
-    this.phase += dt * (3 + 7 * s);
+    const s = THREE.MathUtils.clamp(Math.abs(speed), 0, 1.4);
+    const dir = speed < 0 ? -1 : 1;
+    this.phase += dt * (2 + 8 * s) * dir;
     const t = this.phase;
     const sw = Math.sin(t);
-    const legAmp = 0.65 * s;
-    const armAmp = 0.4 + 0.25 * s;
-    const walk = s > 0.02 ? 1 : 0;
+    const legAmp = 0.6 * Math.min(s, 1.2);
 
-    // idle: arms hang still, a slow breath
-    const breathe = Math.sin(this.phase * 0.35) * 0.015 * (1 - walk);
-    this.bend("upperArm_L", walk * armAmp * s * sw);
-    this.bend("upperArm_R", -walk * armAmp * s * sw);
-    this.bend("lowerArm_L", -0.15 - 0.35 * s * Math.max(0, -sw));
-    this.bend("lowerArm_R", -0.15 - 0.35 * s * Math.max(0, sw));
+    // Arms: swing from the shoulder in the walking plane, a bit more forward than
+    // back, opposite to the legs. Elbows stay bent while running so the hands
+    // pump at waist height instead of flying up to the shoulder.
+    const armAmp = 0.42 * Math.min(s, 1.2);
+    const arm = (x: number) => (x < 0 ? x : x * 0.7) * armAmp; // x<0 forward
+    this.bend("upperArm_L", arm(sw));
+    this.bend("upperArm_R", arm(-sw));
+    const elbow = 0.15 + 0.55 * Math.min(s, 1);
+    this.bend("lowerArm_L", -elbow - 0.2 * s * Math.max(0, -sw));
+    this.bend("lowerArm_R", -elbow - 0.2 * s * Math.max(0, sw));
+
     this.bend("hip_L", -legAmp * sw);
     this.bend("hip_R", legAmp * sw);
     this.bend("knee_L", 0.05 + 1.0 * s * Math.max(0, Math.sin(t + 1.4)));
     this.bend("knee_R", 0.05 + 1.0 * s * Math.max(0, Math.sin(t + 1.4 + Math.PI)));
-    this.bend("spine_1", -0.08 * s + breathe);
-    this.bend("pelvis", 0);
-    this.model.position.y = walk * Math.abs(Math.cos(t)) * 0.05 * s;
+    // idle: a slow breath; running: lean into it
+    const breathe = s < 0.02 ? Math.sin(t * 0.35) * 0.015 : 0;
+    this.bend("spine_1", -0.08 * Math.min(s, 1) * dir + breathe);
+    this.model.position.y = Math.abs(Math.cos(t)) * 0.04 * Math.min(s, 1);
   }
 
   // Outfit i shows every file piece whose unlock <= i.
