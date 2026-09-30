@@ -5,8 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <link rel="icon" href="data:," />
     <title>Boutique Raider</title>
+    <style>
+      /* Preloader: inline so it paints before the game bundle arrives */
+      html, body { margin: 0; background: #1c1724; }
+      #preloader { position: fixed; inset: 0; z-index: 20; background: #1c1724; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; transition: opacity .45s; }
+      #preloader.out { opacity: 0; pointer-events: none; }
+      #preloader .pl-stage { width: min(62vmin, 440px); aspect-ratio: 1; border-radius: 24px; overflow: hidden; background: #1c1724 center / cover no-repeat; box-shadow: 0 0 60px rgba(255, 111, 168, 0.18); }
+      #preloader video { width: 100%; height: 100%; object-fit: cover; display: block; }
+      #preloader .pl-title { font: 700 clamp(24px, 5vmin, 34px) Georgia, serif; color: #ffd166; letter-spacing: .5px; }
+      #preloader .pl-bar { width: min(62vmin, 440px); height: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+      #preloader .pl-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff6fa8, #ffd166); transform-origin: left; transform: scaleX(0); }
+      #preloader .pl-pct { font: 800 clamp(28px, 6vmin, 40px) system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+      #preloader .pl-note { font-size: 14px; color: rgba(255, 255, 255, 0.6); }
+    </style>
   </head>
   <body>
+    <div id="preloader">
+      <div class="pl-stage" id="pl-stage"><video id="pl-video" autoplay muted loop playsinline preload="auto"></video></div>
+      <div class="pl-title">Boutique Raider</div>
+      <div class="pl-bar"><i id="pl-fill"></i></div>
+      <div class="pl-pct"><span id="pl-num">0</span>%</div>
+      <div class="pl-note" id="pl-note">Loading the mall…</div>
+    </div>
+    <script>
+      // set here rather than in markup so Vite leaves the public/ paths alone
+      (function () {
+        var v = document.getElementById("pl-video");
+        document.getElementById("pl-stage").style.backgroundImage = "url(loader/loader.jpg)";
+        v.poster = "loader/loader.jpg";
+        v.src = "loader/loader.mp4";
+        v.onerror = function () { v.remove(); }; // poster background stays
+      })();
+    </script>
     <div id="app"></div>
     <div id="hud"></div>
     <script type="module" src="/src/main.ts"></script>

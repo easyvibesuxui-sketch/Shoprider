@@ -59,10 +59,6 @@ export class Hud {
     this.btns.querySelector('[data-do="pause"]')!.textContent = paused ? "▶" : "⏸";
   }
 
-  loading() {
-    this.show(`<h1>Boutique Raider</h1><p>Loading the mall…</p>`);
-  }
-
   title(level: number) {
     this.show(`
       <h1>Boutique Raider</h1>

@@ -63,10 +63,10 @@ function specGloss(parser: GLTFParser) {
   };
 }
 
-function template(file: string): Promise<Template> {
+function template(file: string, onProgress?: (e: ProgressEvent) => void): Promise<Template> {
   let t = templates.get(file);
   if (!t) {
-    t = new GLTFLoader().register(specGloss).loadAsync(file).then((gltf) => {
+    t = new GLTFLoader().register(specGloss).loadAsync(file, onProgress).then((gltf) => {
       // the catwalk file ships its own spotlights; the mall lights itself
       const lights: THREE.Object3D[] = [];
       gltf.scene.traverse((o) => {
@@ -111,8 +111,8 @@ function fileFor(kind: FoeKind, n: number) {
   return n % 2 === 0 ? FILES.easy : FILES.hard;
 }
 
-export function preloadFoes() {
-  return Promise.all(Object.values(FILES).map(template));
+export function preloadFoes(track?: (url: string) => (e: ProgressEvent) => void) {
+  return Promise.all(Object.values(FILES).map((f) => template(f, track?.(f))));
 }
 
 export class Karen {

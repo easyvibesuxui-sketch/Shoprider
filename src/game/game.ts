@@ -7,6 +7,7 @@ import { CLOTHES } from "./clothes";
 import { Input } from "./input";
 import { Hud } from "./hud";
 import { playFinale } from "./finale";
+import { Preloader } from "./preloader";
 
 type State = "loading" | "title" | "play" | "paused" | "clear" | "finale" | "over" | "win";
 
@@ -80,8 +81,12 @@ export class Game {
   }
 
   async start() {
-    this.hud.loading();
-    await Promise.all([this.hero.load("models/hero.glb"), preloadFoes()]);
+    const pre = new Preloader();
+    await Promise.all([
+      this.hero.load("models/hero.glb", pre.track("models/hero.glb")),
+      preloadFoes((url) => pre.track(url)),
+    ]);
+    pre.building(0.5);
     const lv = Number(this.params.get("level"));
     this.level = Number.isFinite(lv) && lv >= 1 && lv <= LEVELS.length ? lv - 1 : 0;
     await this.buildLevel();
@@ -92,6 +97,8 @@ export class Game {
     this.hud.title(this.level + 1);
     this.hud.buttons(false);
     if (this.params.has("shot")) this.hud.play(); // clean frame for screenshots
+    this.renderer.render(this.scene, this.camera); // compile shaders behind the loader
+    await pre.done();
     if (this.params.has("play")) this.action();
     if (this.params.has("finale")) this.finale();
     this.renderer.setAnimationLoop(() => this.frame());

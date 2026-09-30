@@ -19,8 +19,8 @@ export class Hero {
   private phase = 0;
   outfit = 0;
 
-  async load(url: string) {
-    const gltf = await new GLTFLoader().loadAsync(url);
+  async load(url: string, onProgress?: (e: ProgressEvent) => void) {
+    const gltf = await new GLTFLoader().loadAsync(url, onProgress);
     this.model = gltf.scene;
     this.model.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {
