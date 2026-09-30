@@ -1,0 +1,34 @@
+name: Fetch finale video
+
+# Kling result URLs expire after 24 h, so the finished cutscene is copied into
+# the repo. Run by hand with the video URL.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Video URL to save as public/video/finale.mp4
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download
+        env:
+          URL: ${{ inputs.url }}
+        run: |
+          mkdir -p public/video
+          curl -fsSL "$URL" -o public/video/finale.mp4
+          file public/video/finale.mp4
+          ls -la public/video
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/video/finale.mp4
+          git commit -m "Add Kling finale cutscene" || echo "no change"
+          git push

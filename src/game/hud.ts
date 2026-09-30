@@ -7,22 +7,22 @@ const TOUCH = matchMedia("(pointer: coarse)").matches;
 const CONTROLS = `
   <div class="controls">
     <div class="row ${TOUCH ? "dim" : ""}">
-      <div class="keys"><kbd>W</kbd><kbd>↑</kbd></div><span>წინ სირბილი</span>
-      <div class="keys"><kbd>S</kbd><kbd>↓</kbd></div><span>უკან</span>
-      <div class="keys"><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></div><span>მოტრიალება</span>
-      <div class="keys"><kbd class="wide">Space</kbd></div><span>ნახტომი წინ (dash)</span>
-      <div class="keys"><kbd>P</kbd><kbd>Esc</kbd></div><span>პაუზა</span>
+      <div class="keys"><kbd>W</kbd><kbd>↑</kbd></div><span>Run forward</span>
+      <div class="keys"><kbd>S</kbd><kbd>↓</kbd></div><span>Back up</span>
+      <div class="keys"><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></div><span>Turn</span>
+      <div class="keys"><kbd class="wide">Space</kbd></div><span>Dash</span>
+      <div class="keys"><kbd>P</kbd><kbd>Esc</kbd></div><span>Pause</span>
     </div>
     <div class="row ${TOUCH ? "" : "dim"}">
-      <div class="keys"><i class="pad">◎</i></div><span>ეკრანის მარცხენა ნახევარი: თითი გაასრიალე, მიმართულება</span>
-      <div class="keys"><i class="pad">●</i></div><span>მარჯვენა ნახევარი: შეხება, ნახტომი (dash)</span>
+      <div class="keys"><i class="pad">◎</i></div><span>Left half of the screen: drag your thumb to steer</span>
+      <div class="keys"><i class="pad">●</i></div><span>Right half: tap to dash</span>
     </div>
   </div>
   <ul class="goal">
-    <li>🛍️ შეაგროვე ყველა ჩანთა</li>
-    <li>🟢 მერე მიირბინე <b>CHECKOUT</b>-მდე</li>
-    <li>🙅‍♀️ კარენს არ დაეჯახო (3 ♥). Dash-ით მის გვერდით გაძვრები</li>
-    <li>👗 ყოველ დონეზე ჩაცმულობას ერთი ნივთი ემატება</li>
+    <li>🛍️ Grab every shopping bag</li>
+    <li>🟢 Then run through <b>CHECKOUT</b></li>
+    <li>🙅‍♀️ Don't bump into a Karen (3 ♥). Dash to slip past her</li>
+    <li>👗 Every level adds one piece to her outfit</li>
   </ul>`;
 
 export class Hud {
@@ -39,8 +39,8 @@ export class Hud {
 
   constructor() {
     this.btns.innerHTML = `
-      <button class="icon" data-do="pause" aria-label="პაუზა">⏸</button>
-      <button class="icon" data-do="restart" aria-label="თავიდან">↻</button>`;
+      <button class="icon" data-do="pause" aria-label="Pause">⏸</button>
+      <button class="icon" data-do="restart" aria-label="Restart level">↻</button>`;
     this.bar.append(this.stat, this.btns);
     this.root.append(this.bar, this.card, this.toastEl);
     this.root.addEventListener("click", (e) => {
@@ -60,22 +60,22 @@ export class Hud {
   }
 
   loading() {
-    this.show(`<h1>Boutique Raider</h1><p>მოლი იტვირთება…</p>`);
+    this.show(`<h1>Boutique Raider</h1><p>Loading the mall…</p>`);
   }
 
   title(level: number) {
     this.show(`
       <h1>Boutique Raider</h1>
-      <h2>როგორ ვითამაშოთ</h2>
+      <h2>How to play</h2>
       ${CONTROLS}
-      <button>${level > 1 ? `დაწყება, დონე ${level}` : "დაწყება"}</button>`, true);
+      <button>${level > 1 ? `Start level ${level}` : "Start"}</button>`, true);
   }
 
   paused() {
     this.show(`
-      <h1>პაუზა</h1>
+      <h1>Paused</h1>
       ${CONTROLS}
-      <div class="row-btns"><button>გაგრძელება</button><button class="alt" data-do="restart">დონე თავიდან</button></div>`, true);
+      <div class="row-btns"><button>Resume</button><button class="alt" data-do="restart">Restart level</button></div>`, true);
   }
 
   play() {
@@ -84,24 +84,24 @@ export class Hud {
 
   clear(level: number, piece?: string) {
     this.show(`
-      <h1>დონე ${level} გავლილია</h1>
-      ${piece ? `<p class="unlock">ახალი ტანსაცმელი: <b>${piece}</b></p>` : ""}
-      <button>დონე ${level + 1}</button>`);
+      <h1>Level ${level} cleared</h1>
+      ${piece ? `<p class="unlock">New outfit piece: <b>${piece}</b></p>` : ""}
+      <button>Level ${level + 1}</button>`);
   }
 
   over(level: number) {
-    this.show(`<h1>დაგიჭირეს!</h1><p>კარენებმა დონე ${level}-ზე დაგიჭირეს.</p><button>თავიდან ცდა</button>`);
+    this.show(`<h1>Caught!</h1><p>The Karens got you on level ${level}.</p><button>Try again</button>`);
   }
 
   win() {
-    this.show(`<h1>მოლი დაპყრობილია</h1><p>${LEVELS.length}-ივე დონე გავლილია, სრული კოსტიუმი გახსნილია.</p><button>ხელახლა თამაში</button>`);
+    this.show(`<h1>Mall conquered</h1><p>All ${LEVELS.length} levels cleared, full outfit unlocked.</p><button>Play again</button>`);
   }
 
   stats(level: number, got: number, need: number, lives: number, outfit: number) {
     const pieces = CLOTHES.map((c) => `<span class="${outfit >= c.unlock ? "on" : ""}">${c.label}</span>`).join("");
     this.stat.innerHTML = `
-      <div>დონე <b>${level}</b>/${LEVELS.length}</div>
-      <div>ჩანთები <b>${got}</b>/${need}</div>
+      <div>Level <b>${level}</b>/${LEVELS.length}</div>
+      <div>Bags <b>${got}</b>/${need}</div>
       <div class="lives">${"♥".repeat(Math.max(0, lives))}<i>${"♥".repeat(Math.max(0, 3 - lives))}</i></div>
       <div class="outfit">${pieces}</div>`;
   }

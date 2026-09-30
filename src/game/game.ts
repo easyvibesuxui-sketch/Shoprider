@@ -6,8 +6,9 @@ import { LEVELS } from "./levels";
 import { CLOTHES } from "./clothes";
 import { Input } from "./input";
 import { Hud } from "./hud";
+import { playFinale } from "./finale";
 
-type State = "loading" | "title" | "play" | "paused" | "clear" | "over" | "win";
+type State = "loading" | "title" | "play" | "paused" | "clear" | "finale" | "over" | "win";
 
 const RUN = 4.8; // m/s
 const DASH = 11;
@@ -92,6 +93,7 @@ export class Game {
     this.hud.buttons(false);
     if (this.params.has("shot")) this.hud.play(); // clean frame for screenshots
     if (this.params.has("play")) this.action();
+    if (this.params.has("finale")) this.finale();
     this.renderer.setAnimationLoop(() => this.frame());
     (window as unknown as { game: Game }).game = this;
   }
@@ -259,7 +261,7 @@ export class Game {
           this.refreshStats();
           if (this.collected === L.bags) {
             this.mall!.openGate();
-            this.hud.toast("ყველა ჩანთა! გაიქეცი CHECKOUT-მდე");
+            this.hud.toast("All bags! Run to CHECKOUT");
           }
         }
       }
@@ -389,7 +391,7 @@ export class Game {
       if (dist < HERO_R + FOE_R + 0.1 && this.hurtT <= 0 && k.stun <= 0) {
         if (this.dashT > 0) {
           k.stun = 2; // dashed past her
-          this.hud.toast("უკაცრავად!");
+          this.hud.toast("Excuse me!");
         } else {
           this.lives--;
           this.hurtT = 1.5;
@@ -398,7 +400,7 @@ export class Game {
           heroPos.x += to.x * 1.2;
           heroPos.z += to.z * 1.2;
           this.collide(heroPos, HERO_R);
-          this.hud.toast("კარენს მენეჯერი უნდა!");
+          this.hud.toast("A Karen wants your manager!");
           this.refreshStats();
           if (this.lives <= 0) {
             this.state = "over";
@@ -410,6 +412,18 @@ export class Game {
     }
   }
 
+  // Last level cleared: the date cutscene, then the win screen.
+  private finale() {
+    this.state = "finale";
+    this.hud.play();
+    this.hud.buttons(false);
+    this.input.clear();
+    playFinale("video/finale.mp4").then(() => {
+      this.state = "win";
+      this.hud.win();
+    });
+  }
+
   private clearLevel() {
     // turn her back toward the mall so the showcase camera has room in front
     this.yaw = Math.PI;
@@ -417,8 +431,7 @@ export class Game {
     this.hud.buttons(false);
     if (this.level + 1 >= LEVELS.length) {
       this.hero.setOutfit(CLOTHES.length);
-      this.state = "win";
-      this.hud.win();
+      this.finale();
     } else {
       // preview the piece the next level adds
       this.hero.setOutfit(this.level + 1);
