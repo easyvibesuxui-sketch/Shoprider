@@ -73,6 +73,16 @@ AI (`Game.updateFoes`): chase inside `chase` range, otherwise stroll mostly alon
 
 All in-game text is English (Nick asked for it; he writes to us in Georgian). The title screen and the pause menu show the controls: keyboard rows on desktop, touch rows on a coarse pointer. The top-right ⏸ and ↻ buttons (and P/Esc) pause and restart the level. Switching tabs pauses the game. On touch, the left thumb stick draws a visible ring.
 
+## Preloader
+
+The markup and CSS are inline in `index.html`, so the loading screen paints before the game bundle arrives. `src/game/preloader.ts` computes the percentage from the GLB download bytes (`GLTFLoader` onProgress, Content-Length, with the known file sizes as fallback), which covers 0–90%. The last 10% is parsing, seating the clothes and the first render ("Dressing up…"). The shown number eases toward the real value, then the screen fades out.
+
+The art is from Kling:
+- `art/loader/key.png`: image-to-image (Nano Banana 2 via Kling) from `public/finale/hero-face.png`. She runs with shopping bags, wears a tracksuit, on the game's plum background.
+- `art/loader/loop-raw.mp4`: `kling-video-v3_0`, 5 s, with the key image as both first and tail frame, so the clip loops seamlessly.
+- `public/loader/loader.mp4`: that clip cropped square, 480 px, H.264 CRF 28, no audio, faststart, about 108 KB.
+- `public/loader/loader.jpg`: the poster, shown until the video plays or if it can't.
+
 ## Finale
 
 Clearing level 7 plays `public/video/finale.mp4` fullscreen (`src/game/finale.ts`), then the win screen. There is a Skip button, and if the browser blocks unmuted autoplay the clip plays muted with a "Tap for sound" button. A missing or undecodable clip goes straight to the win screen. Playwright's Chromium has no H.264, so in headless tests the clip always takes that fallback path.
@@ -81,7 +91,7 @@ The clip is a 10 s, 720p, multi-shot Kling generation (`kling-video-v3_0_omni`, 
 
 Plumbing, because this sandbox can reach neither kling.ai uploads nor the Kling CDN:
 - References are passed to Kling as GitHub Pages URLs. `raw.githubusercontent.com` URLs got an HTTP 445 from Kling's firewall.
-- The result is copied into the repo by the `fetch-finale` workflow (manual dispatch, `url` input), because Kling URLs expire after 24 h. Its commit is made with `GITHUB_TOKEN`, so it does not trigger Pages. The next push, or a manual run of the Pages workflow, deploys it.
+- Results are copied into the repo by the `fetch-finale` workflow ("Fetch Kling asset": manual dispatch, `url` plus `path` under `public/` or `art/`), because Kling URLs expire after 24 h. Its commit is made with `GITHUB_TOKEN`, so it does not trigger Pages. The next push, or a manual run of the Pages workflow, deploys it.
 
 ## Debug URL params
 
