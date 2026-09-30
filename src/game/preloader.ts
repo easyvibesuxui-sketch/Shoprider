@@ -4,9 +4,9 @@
 
 // Fallback sizes for when the server sends no Content-Length.
 const EXPECTED: Record<string, number> = {
-  "models/hero.glb": 13140460,
-  "models/karen-easy.glb": 9186052,
-  "models/karen-hard.glb": 3123632,
+  "models/hero.glb": 2293656,
+  "models/karen-easy.glb": 1793940,
+  "models/karen-hard.glb": 926424,
 };
 
 const DOWNLOAD_SHARE = 0.9; // the rest is parsing + seating the clothes
@@ -39,7 +39,7 @@ export class Preloader {
 
   // onProgress handler for one file
   track(url: string) {
-    return (e: ProgressEvent) => {
+    return (e: { loaded: number; total: number; lengthComputable: boolean }) => {
       if (e.lengthComputable && e.total > 0) this.totals.set(url, e.total);
       this.loaded.set(url, Math.min(e.loaded, this.totals.get(url) ?? e.loaded));
     };
@@ -75,6 +75,19 @@ export class Preloader {
     const pct = Math.floor(this.shown * 100);
     if (this.num) this.num.textContent = String(pct);
     if (this.fill) this.fill.style.transform = `scaleX(${this.shown})`;
+  }
+
+  // Loading failed for good: say so and offer a retry instead of hanging.
+  fail(message: string) {
+    this.finished = false;
+    this.status("");
+    if (!this.el || this.el.querySelector(".pl-error")) return;
+    const box = document.createElement("div");
+    box.className = "pl-error";
+    box.innerHTML = `<p>Couldn't load the game.</p><small></small><button>Try again</button>`;
+    box.querySelector("small")!.textContent = message;
+    box.querySelector("button")!.addEventListener("click", () => location.reload());
+    this.el.appendChild(box);
   }
 
   private hide() {

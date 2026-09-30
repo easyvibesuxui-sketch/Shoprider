@@ -1,5 +1,5 @@
 import { loadGLB, THREE } from "./load.mjs";
-for (const f of ["public/models/karen-easy.glb","public/models/karen-hard.glb"]) {
+for (const f of ["art/models/karen-easy.glb","art/models/karen-hard.glb"]) {
   const g = await loadGLB(f); const clip = g.animations[0];
   console.log(f, clip.duration.toFixed(2), "tracks", clip.tracks.length);
   for (const t of clip.tracks.filter(t => /position/.test(t.name))) {

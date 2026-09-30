@@ -1,7 +1,7 @@
 // Print shoulder/elbow/hand positions (hero space, metres) through a run cycle.
 import { loadGLB, THREE } from "./load.mjs";
 import { Hero } from "../src/game/hero.ts";
-const g = await loadGLB("public/models/hero.glb");
+const g = await loadGLB("art/models/hero.glb");
 const h = new Hero(); h.model = g.scene; h.group.add(g.scene); g.scene.updateMatrixWorld(true);
 h.dropArms(); h.captureJoints();
 const f = v => v.toArray().map(x => x.toFixed(2)).join(",");

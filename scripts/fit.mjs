@@ -1,6 +1,6 @@
 import { loadGLB, THREE } from "./load.mjs";
 import { CLOTHES, fitDelta, shiftSkinned, skinnedPoints } from "../src/game/clothes.ts";
-const g = await loadGLB("public/models/hero.glb"); const s = g.scene; s.updateMatrixWorld(true);
+const g = await loadGLB("art/models/hero.glb"); const s = g.scene; s.updateMatrixWorld(true);
 const body = s.getObjectByName("Object_43");
 const bb = new THREE.Box3().setFromPoints(skinnedPoints(body));
 const box = m => new THREE.Box3().setFromPoints(skinnedPoints(m));

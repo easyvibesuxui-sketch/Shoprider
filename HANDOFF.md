@@ -109,6 +109,14 @@ Everywhere:
 
 Measured on a 390×844 @3x mobile emulation, before → after: draw calls 312–416 → 91–115, triangles 375–555k → 175–207k, and a 780×1688 buffer → ≤585×1266. The hero (134k triangles) is now most of what's left.
 
+## Loading robustness
+
+- `public/models/*.glb` are compressed: WebP textures (q82) plus Draco geometry via `@gltf-transform/cli` (`gltf-transform webp`, then `draco --method edgebreaker`). Total size went from 25.4 MB to 5.0 MB. The uncompressed sources live in `art/models/`, and the node scripts read those, since Draco needs Workers. Re-run both steps when a source changes. The decoder is in `public/draco/`.
+- `src/game/loader.ts` fetches each GLB by hand. A request that sends no bytes for 15 s is aborted, and every file gets up to 4 attempts, then `GLTFLoader.parseAsync`. A failed Karen template is not cached.
+- If boot still fails, the preloader shows the error and a "Try again" button (`Preloader.fail`).
+- On `webglcontextlost` (phones under memory pressure or after app switches), the game pauses and shows a Reload overlay.
+- Uncaught errors and rejections show as a red bar at the bottom (tap to dismiss), so a phone bug report can be a screenshot.
+
 ## Debug URL params
 
 `?level=1..7`, `?outfit=0..6`, `?shot=front|back|side` (fixed close camera, hides the card), `?play` (skip the title), `?finale` (play the ending now), `?q=low|high` (force phone or desktop quality). `window.game` is exposed.

@@ -63,6 +63,13 @@ export class Game {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     host.appendChild(this.renderer.domElement);
+    // Phones drop the GPU context under memory pressure or after app switches.
+    // Recovering every texture and skinned mesh in place is unreliable: reload.
+    this.renderer.domElement.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      if (this.state === "play") this.togglePause();
+      showFatal("The graphics were reset by the browser.", "Reload");
+    });
     this.input = new Input(this.renderer.domElement);
 
     this.scene.background = new THREE.Color(0x1c1724);
@@ -90,6 +97,15 @@ export class Game {
 
   async start() {
     const pre = new Preloader();
+    try {
+      await this.boot(pre);
+    } catch (err) {
+      console.error(err);
+      pre.fail(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  private async boot(pre: Preloader) {
     await Promise.all([
       this.hero.load("models/hero.glb", pre.track("models/hero.glb")),
       preloadFoes((url) => pre.track(url)),
@@ -500,6 +516,17 @@ export class Game {
     this.camera.position.set(p.x + Math.sin(this.camYaw) * dist, height, p.z + Math.cos(this.camYaw) * dist);
     this.camera.lookAt(p.x, close ? 1.05 : 1.3, p.z);
   }
+}
+
+// Full-screen message with a reload button, for errors the game can't survive.
+export function showFatal(message: string, action = "Reload") {
+  if (document.querySelector(".fatal")) return;
+  const el = document.createElement("div");
+  el.className = "fatal";
+  el.innerHTML = `<p></p><button>${action}</button>`;
+  el.querySelector("p")!.textContent = message;
+  el.querySelector("button")!.addEventListener("click", () => location.reload());
+  document.body.appendChild(el);
 }
 
 function angleDiff(a: number, b: number) {

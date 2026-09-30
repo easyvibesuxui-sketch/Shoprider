@@ -1,5 +1,5 @@
 import { loadGLB, THREE } from "./load.mjs";
-for (const f of ["public/models/karen-easy.glb","public/models/karen-hard.glb"]) {
+for (const f of ["art/models/karen-easy.glb","art/models/karen-hard.glb"]) {
   const g = await loadGLB(f); const s = g.scene; s.updateMatrixWorld(true);
   const box = new THREE.Box3(); const v = new THREE.Vector3();
   s.traverse(o => { if (o.isSkinnedMesh) { const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i += 7) { v.fromBufferAttribute(p, i); o.applyBoneTransform(i, v); v.applyMatrix4(o.matrixWorld); box.expandByPoint(v); } } });

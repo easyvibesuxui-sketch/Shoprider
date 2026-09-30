@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { loadGLTF, type Progress } from "./loader.ts";
 import { CLOTHES, fitDelta, shiftSkinned } from "./clothes.ts";
 import { QUALITY, blobShadow } from "./quality.ts";
 
@@ -20,8 +20,8 @@ export class Hero {
   private phase = 0;
   outfit = 0;
 
-  async load(url: string, onProgress?: (e: ProgressEvent) => void) {
-    const gltf = await new GLTFLoader().loadAsync(url, onProgress);
+  async load(url: string, onProgress?: Progress) {
+    const gltf = await loadGLTF(url, onProgress);
     this.model = gltf.scene;
     this.model.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {

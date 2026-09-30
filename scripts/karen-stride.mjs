@@ -1,5 +1,5 @@
 import { loadGLB, THREE } from "./load.mjs";
-for (const f of ["public/models/karen-easy.glb","public/models/karen-hard.glb"]) {
+for (const f of ["art/models/karen-easy.glb","art/models/karen-hard.glb"]) {
   const g = await loadGLB(f); const clip = g.animations[0]; const s = g.scene;
   const mixer = new THREE.AnimationMixer(s); mixer.clipAction(clip).play();
   let hips, foot, head; s.traverse(o => { if (!o.isBone) return; if (!hips && /Hips/.test(o.name)) hips = o; if (/LeftFoot/.test(o.name) && !foot) foot = o; if (/HeadTop|Head_/.test(o.name) && !head) head = o; });

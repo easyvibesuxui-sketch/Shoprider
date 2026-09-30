@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { GLTFLoader, type GLTF, type GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
+import type { GLTF, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { loadGLTF, type Progress } from "./loader";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { QUALITY, blobShadow } from "./quality";
 
@@ -64,10 +65,10 @@ function specGloss(parser: GLTFParser) {
   };
 }
 
-function template(file: string, onProgress?: (e: ProgressEvent) => void): Promise<Template> {
+function template(file: string, onProgress?: Progress): Promise<Template> {
   let t = templates.get(file);
   if (!t) {
-    t = new GLTFLoader().register(specGloss).loadAsync(file, onProgress).then((gltf) => {
+    t = loadGLTF(file, onProgress, [specGloss]).then((gltf) => {
       // the catwalk file ships its own spotlights; the mall lights itself
       const lights: THREE.Object3D[] = [];
       gltf.scene.traverse((o) => {
@@ -97,6 +98,7 @@ function template(file: string, onProgress?: (e: ProgressEvent) => void): Promis
       const scale = HEIGHT / (box.max.y - box.min.y);
       return { gltf, scale, lift: -box.min.y * scale, clipSpeed: CLIP_SPEED[file] ?? 1.2 };
     });
+    t.catch(() => templates.delete(file));
     templates.set(file, t);
   }
   return t;
@@ -109,7 +111,7 @@ function fileFor(kind: FoeKind, n: number) {
   return n % 2 === 0 ? FILES.easy : FILES.hard;
 }
 
-export function preloadFoes(track?: (url: string) => (e: ProgressEvent) => void) {
+export function preloadFoes(track?: (url: string) => Progress) {
   return Promise.all(Object.values(FILES).map((f) => template(f, track?.(f))));
 }
 
