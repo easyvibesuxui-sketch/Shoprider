@@ -33,12 +33,12 @@ Order is smallest first ("minimal at the start, then more clothes"):
 
 | Mesh | Label | Unlock | Delta found (m) |
 |---|---|---|---|
-| `Object_35` | ლეოტარდი (leotard) | 0 (level 1) | (-0.89, 0, 0) |
-| `Object_37` | საყელო (collar) | 1 | (0.38, -0.07, 0.04) |
-| `Object_19` | ხელთათმანები (gloves, `lockX`) | 2 | (0, 0.14, 0) |
-| `Object_21` | ქამარი (belt) | 3 | (0.75, -0.03, 0) |
-| `Object_13` | ფეხსაცმელი (boots) | 4 | (0, 0.23, -0.05) |
-| `Object_15` | წინდები (torn thigh-highs) | 5 | (0, -0.03, 0.45) |
+| `Object_35` | Leotard | 0 (level 1) | (-0.89, 0, 0) |
+| `Object_37` | Collar | 1 | (0.38, -0.07, 0.04) |
+| `Object_19` | Gloves (`lockX`) | 2 | (0, 0.14, 0) |
+| `Object_21` | Belt | 3 | (0.75, -0.03, 0) |
+| `Object_13` | Boots | 4 | (0, 0.23, -0.05) |
+| `Object_15` | Stockings (torn thigh-highs) | 5 | (0, -0.03, 0.45) |
 
 `buildLevel` sets outfit = level index, so level N wears the first N pieces (levels 6 and 7 wear all six). Restarting a level keeps that level's outfit. The clear screen previews the next piece. Cloth materials use `polygonOffset` so they win depth ties with the skin.
 
@@ -71,8 +71,18 @@ AI (`Game.updateFoes`): chase inside `chase` range, otherwise stroll mostly alon
 
 ## UI
 
-The HUD is in Georgian. The title screen and the pause menu show the controls: keyboard rows on desktop, touch rows on a coarse pointer. The top-right ⏸ and ↻ buttons (and P/Esc) pause and restart the level. Switching tabs pauses the game. On touch, the left thumb stick draws a visible ring.
+All in-game text is English (Nick asked for it; he writes to us in Georgian). The title screen and the pause menu show the controls: keyboard rows on desktop, touch rows on a coarse pointer. The top-right ⏸ and ↻ buttons (and P/Esc) pause and restart the level. Switching tabs pauses the game. On touch, the left thumb stick draws a visible ring.
+
+## Finale
+
+Clearing level 7 plays `public/video/finale.mp4` fullscreen (`src/game/finale.ts`), then the win screen. There is a Skip button, and if the browser blocks unmuted autoplay the clip plays muted with a "Tap for sound" button. A missing or undecodable clip goes straight to the win screen. Playwright's Chromium has no H.264, so in headless tests the clip always takes that fallback path.
+
+The clip is a 10 s, 720p, multi-shot Kling generation (`kling-video-v3_0_omni`, with audio): she is on a restaurant date in an evening gown, a Karen barges in pointing and asking for the manager, the date leaves, and she facepalms. It uses two references: `public/finale/hero-face.png` (head and shoulders) and `public/finale/karen-ref.png`. Kling's moderation rejected the first attempt, which used a full-body leotard reference (credits refunded).
+
+Plumbing, because this sandbox can reach neither kling.ai uploads nor the Kling CDN:
+- References are passed to Kling as GitHub Pages URLs. `raw.githubusercontent.com` URLs got an HTTP 445 from Kling's firewall.
+- The result is copied into the repo by the `fetch-finale` workflow (manual dispatch, `url` input), because Kling URLs expire after 24 h. Its commit is made with `GITHUB_TOKEN`, so it does not trigger Pages. The next push, or a manual run of the Pages workflow, deploys it.
 
 ## Debug URL params
 
-`?level=1..7`, `?outfit=0..6`, `?shot=front|back|side` (fixed close camera, hides the card), `?play` (skip the title). `window.game` is exposed.
+`?level=1..7`, `?outfit=0..6`, `?shot=front|back|side` (fixed close camera, hides the card), `?play` (skip the title), `?finale` (play the ending now). `window.game` is exposed.
